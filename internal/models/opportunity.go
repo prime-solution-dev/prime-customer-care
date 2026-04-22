@@ -58,3 +58,22 @@ type OpportunityRemark struct {
 func (OpportunityRemark) TableName() string {
 	return "opportunity_remark"
 }
+
+type OpportunityRemarkAttachment struct {
+	ID                  uuid.UUID `json:"id"`
+	OpportunityRemarkID uuid.UUID `json:"opportunity_remark_id"`
+	FileName            string    `json:"file_name"`
+	FilePath            string    `json:"file_path"`
+	FileType            string    `json:"file_type"`
+	FileSize            int64     `json:"file_size"`
+	CreateDate          time.Time `json:"create_date"`
+	CreateBy            string    `json:"create_by"`
+	UpdateDate          time.Time `json:"update_date"`
+	UpdateBy            string    `json:"update_by"`
+}
+
+func (OpportunityRemarkAttachment) TableName() string {
+
+	return "opportunity_remark_attachment"
+
+}
