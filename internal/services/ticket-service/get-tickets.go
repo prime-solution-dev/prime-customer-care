@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"time"
 
 	"prime-customer-care/internal/db"
 	"prime-customer-care/internal/models"
@@ -14,9 +15,13 @@ import (
 )
 
 type GetTicketsRequest struct {
-	CustomerCodes []string `json:"customer_codes"`
-	Page          int      `json:"page"`
-	PageSize      int      `json:"page_size"`
+	ID             []string   `json:"id"`
+	TicketCode     []string   `json:"ticket_code"`
+	TicketChannel  []string   `json:"ticket_channel"`
+	CreateDateFrom *time.Time `json:"create_date_from"`
+	CreateDateTo   *time.Time `json:"create_date_to"`
+	Page           int        `json:"page"`
+	PageSize       int        `json:"page_size"`
 }
 
 type GetTicketsResponse struct {
@@ -25,7 +30,7 @@ type GetTicketsResponse struct {
 	Page         int             `json:"page"`
 	TotalPages   int             `json:"total_pages"`
 	Total        int64           `json:"total"`
-	Data         []models.Ticket `json:"data"`
+	Tickets      []models.Ticket `json:"tickets"`
 }
 
 func GetTicketsRest(ctx *gin.Context, jsonPayload string) (interface{}, error) {
@@ -49,29 +54,35 @@ func GetTickets(gormx *gorm.DB, request GetTicketsRequest) (*GetTicketsResponse,
 		return nil, errors.New("database connection is nil")
 	}
 
-	page := request.Page
-	if page <= 0 {
-		page = 1
-	}
-
-	pageSize := request.PageSize
-	if pageSize <= 0 {
-		pageSize = 20
-	}
-
-	offset := (page - 1) * pageSize
+	usePagination := request.PageSize > 0
 
 	res := GetTicketsResponse{
 		ResponseCode: 200,
 		Message:      "success",
-		Page:         page,
-		Data:         []models.Ticket{},
+		Page:         request.Page,
+		Tickets:      []models.Ticket{},
 	}
 
 	query := gormx.Model(&models.Ticket{})
 
-	if len(request.CustomerCodes) > 0 {
-		query = query.Where("customer_name IN ?", request.CustomerCodes)
+	if len(request.ID) > 0 {
+		query = query.Where("id IN ?", request.ID)
+	}
+
+	if len(request.TicketCode) > 0 {
+		query = query.Where("ticket_code IN ?", request.TicketCode)
+	}
+
+	if len(request.TicketChannel) > 0 {
+		query = query.Where("ticket_channel IN ?", request.TicketChannel)
+	}
+
+	if request.CreateDateFrom != nil {
+		query = query.Where("create_date >= ?", *request.CreateDateFrom)
+	}
+
+	if request.CreateDateTo != nil {
+		query = query.Where("create_date <= ?", *request.CreateDateTo)
 	}
 
 	var total int64
@@ -79,23 +90,43 @@ func GetTickets(gormx *gorm.DB, request GetTicketsRequest) (*GetTicketsResponse,
 		return nil, fmt.Errorf("failed to count tickets: %v", err)
 	}
 
-	var tickets []models.Ticket
-	if err := query.
-		Order("create_date DESC").
-		Limit(pageSize).
-		Offset(offset).
-		Find(&tickets).Error; err != nil {
-		return nil, fmt.Errorf("failed to get tickets: %v", err)
+	fetchQuery := query.Order("create_date DESC").Order("id DESC")
+	totalPages := 0
+
+	if usePagination {
+		page := request.Page
+		if page <= 0 {
+			page = 1
+		}
+
+		pageSize := request.PageSize
+		if total > 0 {
+			totalPages = int((total + int64(pageSize) - 1) / int64(pageSize))
+		}
+
+		res.Page = page
+		res.Total = total
+		res.TotalPages = totalPages
+
+		if total == 0 || page > totalPages {
+			return &res, nil
+		}
+
+		offset := (page - 1) * pageSize
+		fetchQuery = fetchQuery.Limit(pageSize).Offset(offset)
+	} else if total > 0 {
+		res.Page = 1
+		totalPages = 1
 	}
 
-	totalPages := 0
-	if total > 0 {
-		totalPages = int((total + int64(pageSize) - 1) / int64(pageSize))
+	var tickets []models.Ticket
+	if err := fetchQuery.Find(&tickets).Error; err != nil {
+		return nil, fmt.Errorf("failed to get tickets: %v", err)
 	}
 
 	res.Total = total
 	res.TotalPages = totalPages
-	res.Data = tickets
+	res.Tickets = tickets
 
 	return &res, nil
 }

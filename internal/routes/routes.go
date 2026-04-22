@@ -15,5 +15,11 @@ func RegisterRoutes(ctx *gin.Engine) {
 	ticketRoutes.POST("/get-tickets", func(c *gin.Context) {
 		utils.ProcessRequest(c, ticketService.GetTicketsRest)
 	})
+	ticketRoutes.POST("/create-tickets", func(c *gin.Context) {
+		utils.ProcessRequest(c, ticketService.CreateTicketsRest)
+	})
+	ticketRoutes.POST("/update-tickets", func(c *gin.Context) {
+		utils.ProcessRequest(c, ticketService.UpdateTicketsRest)
+	})
 
 }
