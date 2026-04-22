@@ -12,7 +12,7 @@ func RegisterRoutes(ctx *gin.Engine) {
 	//Ticket
 	ticketRoutes := ctx.Group("/ticket")
 
-	ticketRoutes.POST("/get-ticket", func(c *gin.Context) {
+	ticketRoutes.POST("/get-tickets", func(c *gin.Context) {
 		utils.ProcessRequest(c, ticketService.GetTicketsRest)
 	})
 
