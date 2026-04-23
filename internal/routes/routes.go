@@ -1,6 +1,7 @@
 package routes
 
 import (
+	opportunityService "prime-customer-care/internal/services/opportunity-service"
 	ticketService "prime-customer-care/internal/services/ticket-service"
 	"prime-customer-care/internal/utils"
 
@@ -20,6 +21,19 @@ func RegisterRoutes(ctx *gin.Engine) {
 	})
 	ticketRoutes.POST("/update-tickets", func(c *gin.Context) {
 		utils.ProcessRequest(c, ticketService.UpdateTicketsRest)
+	})
+
+	// Opportunity
+	opportunityRoutes := ctx.Group("/opportunity")
+
+	opportunityRoutes.POST("/get-opportunities", func(c *gin.Context) {
+		utils.ProcessRequest(c, opportunityService.GetOpportunitiesRest)
+	})
+	opportunityRoutes.POST("/create-opportunities", func(c *gin.Context) {
+		utils.ProcessRequest(c, opportunityService.CreateOpportunitiesRest)
+	})
+	opportunityRoutes.POST("/create-opportunity-tickets", func(c *gin.Context) {
+		utils.ProcessRequest(c, opportunityService.CreateOpportunityTicketsRest)
 	})
 
 }
