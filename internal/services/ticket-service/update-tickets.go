@@ -109,14 +109,24 @@ func UpdateTickets(gormx *gorm.DB, ctx *gin.Context, req []UpdateTicketRequest) 
 			return nil, fmt.Errorf("failed to update ticket %s: %w", item.ID, err)
 		}
 
+		var updatedTicket models.Ticket
+		if err := gormx.Model(&models.Ticket{}).
+			Select("id", "ticket_code").
+			Where("id = ?", item.ID).
+			First(&updatedTicket).Error; err != nil {
+			return nil, fmt.Errorf("failed to fetch ticket %s: %w", item.ID, err)
+		}
+
 		tickets = append(tickets, Ticket{
-			ID: item.ID,
+			ID:         updatedTicket.ID,
+			TicketCode: updatedTicket.TicketCode,
 		})
 	}
 
 	res := CreateTicketsResponse{
 		ResponseCode: 200,
 		Message:      "update success",
+		Tickets:      tickets,
 	}
 
 	return &res, nil

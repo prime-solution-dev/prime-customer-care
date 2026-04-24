@@ -82,10 +82,14 @@ func CreateOpportunities(gormx *gorm.DB, ctx *gin.Context, req []CreateOpportuni
 	for i, item := range req {
 		now := time.Now()
 		opportunityID := uuid.New()
+		opportunityCode := strings.TrimSpace(item.OpportunityCode)
+		if opportunityCode == "" {
+			opportunityCode = uuid.New().String()
+		}
 
 		opportunityRows = append(opportunityRows, models.Opportunity{
 			ID:              opportunityID,
-			OpportunityCode: uuid.New().String(),
+			OpportunityCode: opportunityCode,
 			OpportunityName: item.OpportunityName,
 			TicketType:      item.TicketType,
 			CustomerName:    item.CustomerName,

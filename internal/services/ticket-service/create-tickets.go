@@ -7,6 +7,7 @@ import (
 	"os"
 	"prime-customer-care/internal/db"
 	"prime-customer-care/internal/models"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -15,6 +16,7 @@ import (
 )
 
 type CreateTicketRequest struct {
+	TicketCode    string    `json:"ticket_code"`
 	TicketChannel string    `json:"ticket_channel"`
 	CustomerName  string    `json:"customer_name"`
 	Tel           string    `json:"tel"`
@@ -70,6 +72,11 @@ func CreateTickets(gormx *gorm.DB, ctx *gin.Context, req []CreateTicketRequest) 
 	rows := make([]models.Ticket, 0, len(req))
 	for _, item := range req {
 		now := time.Now()
+		ticketID := uuid.New()
+		ticketCode := strings.TrimSpace(item.TicketCode)
+		if ticketCode == "" {
+			ticketCode = uuid.New().String()
+		}
 
 		var startCall *time.Time
 		if !item.StartCall.IsZero() {
@@ -82,8 +89,8 @@ func CreateTickets(gormx *gorm.DB, ctx *gin.Context, req []CreateTicketRequest) 
 		}
 
 		rows = append(rows, models.Ticket{
-			ID:            uuid.New(),
-			TicketCode:    uuid.New().String(),
+			ID:            ticketID,
+			TicketCode:    ticketCode,
 			TicketChannel: item.TicketChannel,
 			CustomerName:  item.CustomerName,
 			Tel:           item.Tel,
