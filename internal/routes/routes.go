@@ -32,11 +32,17 @@ func RegisterRoutes(ctx *gin.Engine) {
 	opportunityRoutes.POST("/create-opportunities", func(c *gin.Context) {
 		utils.ProcessRequest(c, opportunityService.CreateOpportunitiesRest)
 	})
+	opportunityRoutes.POST("/create-opportunity-tickets", func(c *gin.Context) {
+		utils.ProcessRequest(c, opportunityService.CreateOpportunityTicketsRest)
+	})
+	opportunityRoutes.POST("/create-opportunity-remarks", func(c *gin.Context) {
+		utils.ProcessRequest(c, opportunityService.CreateOpportunityRemarkRest)
+	})
 	opportunityRoutes.POST("/update-opportunities", func(c *gin.Context) {
 		utils.ProcessRequest(c, opportunityService.UpdateOpportunitiesRest)
 	})
-	opportunityRoutes.POST("/create-opportunity-tickets", func(c *gin.Context) {
-		utils.ProcessRequest(c, opportunityService.CreateOpportunityTicketsRest)
+	opportunityRoutes.POST("/update-opportunity-remarks", func(c *gin.Context) {
+		utils.ProcessRequest(c, opportunityService.UpdateOpportunityRemarksRest)
 	})
 
 }

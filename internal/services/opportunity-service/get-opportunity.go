@@ -31,7 +31,8 @@ type GetOpportunitiesRequest struct {
 
 type OpportunityWithTickets struct {
 	models.Opportunity
-	Tickets []CreateOpportunityTicket `json:"tickets"`
+	Tickets []CreateOpportunityTicket          `json:"tickets"`
+	Remarks []OpportunityRemarkWithAttachments `json:"remarks"`
 }
 
 type GetOpportunitiesResponse struct {
@@ -156,6 +157,7 @@ func GetOpportunities(gormx *gorm.DB, request GetOpportunitiesRequest) (*GetOppo
 	}
 
 	ticketsByOpportunityID := make(map[uuid.UUID][]CreateOpportunityTicket, len(opportunities))
+	remarksByOpportunityID := make(map[uuid.UUID][]OpportunityRemarkWithAttachments, len(opportunities))
 	if len(opportunityIDs) > 0 {
 		var opportunityTickets []models.OpportunityTicket
 		if err := gormx.
@@ -174,6 +176,56 @@ func GetOpportunities(gormx *gorm.DB, request GetOpportunitiesRequest) (*GetOppo
 				CreateOpportunityTicket{TicketCode: opportunityTicket.TicketCode},
 			)
 		}
+
+		var remarks []models.OpportunityRemark
+		if err := gormx.
+			Model(&models.OpportunityRemark{}).
+			Where("opportunity_id IN ?", opportunityIDs).
+			Order("create_date DESC").
+			Find(&remarks).
+			Error; err != nil {
+			return nil, fmt.Errorf("failed to get opportunity remarks: %v", err)
+		}
+
+		remarkIDs := make([]uuid.UUID, 0, len(remarks))
+		for _, remark := range remarks {
+			remarkIDs = append(remarkIDs, remark.ID)
+		}
+
+		attachmentMap := make(map[uuid.UUID][]models.OpportunityRemarkAttachment, len(remarks))
+		if len(remarkIDs) > 0 {
+			var attachments []models.OpportunityRemarkAttachment
+			if err := gormx.
+				Where("opportunity_remark_id IN ?", remarkIDs).
+				Order("create_date ASC").
+				Find(&attachments).Error; err != nil {
+				return nil, fmt.Errorf("failed to get opportunity remark attachments: %v", err)
+			}
+
+			for _, attachment := range attachments {
+				attachmentMap[attachment.OpportunityRemarkID] = append(
+					attachmentMap[attachment.OpportunityRemarkID],
+					attachment,
+				)
+			}
+		}
+
+		for _, remark := range remarks {
+			remarksByOpportunityID[remark.OpportunityID] = append(
+				remarksByOpportunityID[remark.OpportunityID],
+				OpportunityRemarkWithAttachments{
+					ID:            remark.ID,
+					OpportunityID: remark.OpportunityID,
+					Remark:        remark.Remark,
+					CsStaff:       remark.CsStaff,
+					CreateDate:    remark.CreateDate,
+					CreateBy:      remark.CreateBy,
+					UpdateDate:    remark.UpdateDate,
+					UpdateBy:      remark.UpdateBy,
+					Attachments:   attachmentMap[remark.ID],
+				},
+			)
+		}
 	}
 
 	opportunitiesWithTickets := make([]OpportunityWithTickets, 0, len(opportunities))
@@ -182,10 +234,15 @@ func GetOpportunities(gormx *gorm.DB, request GetOpportunitiesRequest) (*GetOppo
 		if tickets == nil {
 			tickets = []CreateOpportunityTicket{}
 		}
+		remarks := remarksByOpportunityID[opportunity.ID]
+		if remarks == nil {
+			remarks = []OpportunityRemarkWithAttachments{}
+		}
 
 		opportunitiesWithTickets = append(opportunitiesWithTickets, OpportunityWithTickets{
 			Opportunity: opportunity,
 			Tickets:     tickets,
+			Remarks:     remarks,
 		})
 	}
 

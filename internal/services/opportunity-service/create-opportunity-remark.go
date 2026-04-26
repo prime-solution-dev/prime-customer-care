@@ -2,6 +2,7 @@ package opportunityService
 
 import (
 	"fmt"
+	"mime/multipart"
 	"os"
 	"path/filepath"
 	"strings"
@@ -33,7 +34,15 @@ type CreateOpportunityRemarkResponse struct {
 	Data         OpportunityRemarkWithAttachments `json:"data"`
 }
 
-func CreateOpportunityRemarkRest(ctx *gin.Context) (interface{}, error) {
+type CreateOpportunityRemarkInput struct {
+	OpportunityID uuid.UUID
+	Remark        string
+	CsStaff       string
+	CreateBy      string
+	FileHeaders   []*multipart.FileHeader
+}
+
+func CreateOpportunityRemarkRest(ctx *gin.Context, jsonPayload string) (interface{}, error) {
 	gormx, err := db.ConnectGORM(os.Getenv("database_sqlx_url_prime_customer_care"))
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to database: %v", err)
@@ -69,99 +78,33 @@ func CreateOpportunityRemark(gormx *gorm.DB, ctx *gin.Context) (*CreateOpportuni
 		createBy = "SYSTEM"
 	}
 
-	now := time.Now()
-	remarkID := uuid.New()
-
-	basePath := strings.TrimSpace(os.Getenv("path_attachment"))
-	if basePath == "" {
-		basePath = "./attachment"
-	}
-
-	row := models.OpportunityRemark{
-		ID:            remarkID,
-		OpportunityID: opportunityID,
-		Remark:        remark,
-		CsStaff:       csStaff,
-		CreateDate:    now,
-		CreateBy:      createBy,
-		UpdateDate:    now,
-		UpdateBy:      createBy,
-	}
+	row := models.OpportunityRemark{}
 
 	attachments := []models.OpportunityRemarkAttachment{}
 
 	err = gormx.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Create(&row).Error; err != nil {
-			return fmt.Errorf("failed to create opportunity remark: %v", err)
+		form, _ := ctx.MultipartForm()
+		fileHeaders := []*multipart.FileHeader{}
+		if form != nil {
+			fileHeaders = form.File["files"]
+			if len(fileHeaders) == 0 {
+				fileHeaders = form.File["file"]
+			}
 		}
 
-		form, err := ctx.MultipartForm()
+		resRow, resAttachments, err := createOpportunityRemarkWithFiles(tx, ctx, CreateOpportunityRemarkInput{
+			OpportunityID: opportunityID,
+			Remark:        remark,
+			CsStaff:       csStaff,
+			CreateBy:      createBy,
+			FileHeaders:   fileHeaders,
+		})
 		if err != nil {
-			return nil
+			return err
 		}
 
-		fileHeaders := form.File["files"]
-		if len(fileHeaders) == 0 {
-			fileHeaders = form.File["file"]
-		}
-		if len(fileHeaders) == 0 {
-			return nil
-		}
-
-		saveDir := filepath.Join(basePath, "opportunity_remark", remarkID.String())
-		if err := os.MkdirAll(saveDir, os.ModePerm); err != nil {
-			return fmt.Errorf("failed to create directory: %v", err)
-		}
-
-		allowedExt := map[string]bool{
-			".jpg":  true,
-			".jpeg": true,
-			".png":  true,
-			".pdf":  true,
-			".doc":  true,
-			".docx": true,
-			".xls":  true,
-			".xlsx": true,
-		}
-
-		for _, fileHeader := range fileHeaders {
-			ext := strings.ToLower(filepath.Ext(fileHeader.Filename))
-			if !allowedExt[ext] {
-				return fmt.Errorf("file type not allowed: %s", ext)
-			}
-
-			if fileHeader.Size > 10*1024*1024 {
-				return fmt.Errorf("file size exceeds 10MB: %s", fileHeader.Filename)
-			}
-
-			attachmentID := uuid.New()
-			fileName := fmt.Sprintf("%s%s", attachmentID.String(), ext)
-			fullPath := filepath.Join(saveDir, fileName)
-
-			if err := ctx.SaveUploadedFile(fileHeader, fullPath); err != nil {
-				return fmt.Errorf("failed to save uploaded file %s: %v", fileHeader.Filename, err)
-			}
-
-			attachment := models.OpportunityRemarkAttachment{
-				ID:                  attachmentID,
-				OpportunityRemarkID: remarkID,
-				FileName:            fileHeader.Filename,
-				FilePath:            filepath.ToSlash(fullPath),
-				FileType:            ext,
-				FileSize:            fileHeader.Size,
-				CreateDate:          now,
-				CreateBy:            createBy,
-				UpdateDate:          now,
-				UpdateBy:            createBy,
-			}
-
-			if err := tx.Create(&attachment).Error; err != nil {
-				return fmt.Errorf("failed to create opportunity remark attachment: %v", err)
-			}
-
-			attachments = append(attachments, attachment)
-		}
-
+		row = resRow
+		attachments = resAttachments
 		return nil
 	})
 	if err != nil {
@@ -185,4 +128,99 @@ func CreateOpportunityRemark(gormx *gorm.DB, ctx *gin.Context) (*CreateOpportuni
 	}
 
 	return &res, nil
+}
+
+func createOpportunityRemarkWithFiles(tx *gorm.DB, ctx *gin.Context, input CreateOpportunityRemarkInput) (models.OpportunityRemark, []models.OpportunityRemarkAttachment, error) {
+	now := time.Now()
+	remarkID := uuid.New()
+
+	createBy := strings.TrimSpace(input.CreateBy)
+	csStaff := strings.TrimSpace(input.CsStaff)
+	if createBy == "" {
+		createBy = csStaff
+	}
+	if createBy == "" {
+		createBy = "SYSTEM"
+	}
+
+	basePath := strings.TrimSpace(os.Getenv("path_attachment"))
+	if basePath == "" {
+		basePath = "./attachment"
+	}
+
+	row := models.OpportunityRemark{
+		ID:            remarkID,
+		OpportunityID: input.OpportunityID,
+		Remark:        strings.TrimSpace(input.Remark),
+		CsStaff:       csStaff,
+		CreateDate:    now,
+		CreateBy:      createBy,
+		UpdateDate:    now,
+		UpdateBy:      createBy,
+	}
+
+	if err := tx.Create(&row).Error; err != nil {
+		return models.OpportunityRemark{}, nil, fmt.Errorf("failed to create opportunity remark: %v", err)
+	}
+
+	if len(input.FileHeaders) == 0 {
+		return row, []models.OpportunityRemarkAttachment{}, nil
+	}
+
+	saveDir := filepath.Join(basePath, "opportunity_remark", remarkID.String())
+	if err := os.MkdirAll(saveDir, os.ModePerm); err != nil {
+		return models.OpportunityRemark{}, nil, fmt.Errorf("failed to create directory: %v", err)
+	}
+
+	allowedExt := map[string]bool{
+		".jpg":  true,
+		".jpeg": true,
+		".png":  true,
+		".pdf":  true,
+		".doc":  true,
+		".docx": true,
+		".xls":  true,
+		".xlsx": true,
+	}
+
+	attachments := make([]models.OpportunityRemarkAttachment, 0, len(input.FileHeaders))
+	for _, fileHeader := range input.FileHeaders {
+		ext := strings.ToLower(filepath.Ext(fileHeader.Filename))
+		if !allowedExt[ext] {
+			return models.OpportunityRemark{}, nil, fmt.Errorf("file type not allowed: %s", ext)
+		}
+
+		if fileHeader.Size > 10*1024*1024 {
+			return models.OpportunityRemark{}, nil, fmt.Errorf("file size exceeds 10MB: %s", fileHeader.Filename)
+		}
+
+		attachmentID := uuid.New()
+		fileName := fmt.Sprintf("%s%s", attachmentID.String(), ext)
+		fullPath := filepath.Join(saveDir, fileName)
+
+		if err := ctx.SaveUploadedFile(fileHeader, fullPath); err != nil {
+			return models.OpportunityRemark{}, nil, fmt.Errorf("failed to save uploaded file %s: %v", fileHeader.Filename, err)
+		}
+
+		attachment := models.OpportunityRemarkAttachment{
+			ID:                  attachmentID,
+			OpportunityRemarkID: remarkID,
+			FileName:            fileHeader.Filename,
+			FilePath:            filepath.ToSlash(fullPath),
+			FileType:            ext,
+			FileSize:            fileHeader.Size,
+			CreateDate:          now,
+			CreateBy:            createBy,
+			UpdateDate:          now,
+			UpdateBy:            createBy,
+		}
+
+		if err := tx.Create(&attachment).Error; err != nil {
+			return models.OpportunityRemark{}, nil, fmt.Errorf("failed to create opportunity remark attachment: %v", err)
+		}
+
+		attachments = append(attachments, attachment)
+	}
+
+	return row, attachments, nil
 }

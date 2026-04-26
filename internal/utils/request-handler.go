@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"bytes"
 	"io"
 	"log"
 	"net/http"
@@ -20,6 +21,8 @@ func ProcessRequest(c *gin.Context, serviceFunc func(*gin.Context, string) (inte
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	// Restore request body so downstream handlers can still read form-data/multipart payloads.
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(jsonData))
 
 	// เรียกใช้ service function
 	response, err := serviceFunc(c, string(jsonData))
@@ -46,6 +49,7 @@ func ProcessRequestWithBinarySupport(c *gin.Context, serviceFunc func(*gin.Conte
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(jsonData))
 
 	response, err := serviceFunc(c, string(jsonData))
 	if err != nil {
