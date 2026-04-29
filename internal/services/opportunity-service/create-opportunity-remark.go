@@ -43,7 +43,7 @@ type CreateOpportunityRemarkInput struct {
 }
 
 func CreateOpportunityRemarkRest(ctx *gin.Context, jsonPayload string) (interface{}, error) {
-	gormx, err := db.ConnectGORM(os.Getenv("database_sqlx_url_prime_customer_care"))
+	gormx, err := db.ConnectGORM(os.Getenv("database_sqlx_url_customer_care"))
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to database: %v", err)
 	}
