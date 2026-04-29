@@ -19,6 +19,9 @@ type GetOpportunitiesRequest struct {
 	ID              []string   `json:"id"`
 	OpportunityCode []string   `json:"opportunity_code"`
 	TicketType      []string   `json:"ticket_type"`
+	CustomerName    []string   `json:"customer_name"`
+	Tel             []string   `json:"tel"`
+	Email           []string   `json:"email"`
 	BrandCode       []string   `json:"brand_code"`
 	OrderCode       []string   `json:"order_code"`
 	Status          []string   `json:"status"`
@@ -86,6 +89,18 @@ func GetOpportunities(gormx *gorm.DB, request GetOpportunitiesRequest) (*GetOppo
 
 	if len(request.TicketType) > 0 {
 		query = query.Where("ticket_type IN ?", request.TicketType)
+	}
+
+	if len(request.CustomerName) > 0 {
+		query = query.Where("customer_name IN ?", request.CustomerName)
+	}
+
+	if len(request.Tel) > 0 {
+		query = query.Where("tel IN ?", request.Tel)
+	}
+
+	if len(request.Email) > 0 {
+		query = query.Where("email IN ?", request.Email)
 	}
 
 	if len(request.BrandCode) > 0 {

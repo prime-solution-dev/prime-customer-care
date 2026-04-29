@@ -1,12 +1,11 @@
 package opportunityService
 
 import (
-	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 	"prime-customer-care/internal/db"
 	"prime-customer-care/internal/models"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -29,11 +28,15 @@ type OpportunityTicket struct {
 	ID uuid.UUID `json:"id"`
 }
 
+func opportunityTicketPairKey(opportunityID uuid.UUID, ticketCode string) string {
+	return opportunityID.String() + "|" + ticketCode
+}
+
 func CreateOpportunityTicketsRest(ctx *gin.Context, jsonPayload string) (interface{}, error) {
 	var req []CreateOpportunityTicketsRequest
 
-	if err := json.Unmarshal([]byte(jsonPayload), &req); err != nil {
-		return nil, errors.New("failed to unmarshal JSON into struct: " + err.Error())
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		return nil, err
 	}
 
 	gormx, err := db.ConnectGORM(os.Getenv("database_sqlx_url_prime_customer_care"))
@@ -45,7 +48,12 @@ func CreateOpportunityTicketsRest(ctx *gin.Context, jsonPayload string) (interfa
 	return CreateOpportunityTickets(gormx, ctx, req)
 }
 
-func CreateOpportunityTickets(gormx *gorm.DB, ctx *gin.Context, req []CreateOpportunityTicketsRequest) (*CreateOpportunityTicketsResponse, error) {
+func CreateOpportunityTickets(
+	gormx *gorm.DB,
+	ctx *gin.Context,
+	req []CreateOpportunityTicketsRequest,
+) (*CreateOpportunityTicketsResponse, error) {
+
 	if gormx == nil {
 		return nil, fmt.Errorf("database connection is nil")
 	}
@@ -55,21 +63,69 @@ func CreateOpportunityTickets(gormx *gorm.DB, ctx *gin.Context, req []CreateOppo
 
 	conUserID, _ := ctx.Get("user")
 	userID := ""
-	if conUserID != nil {
-		userID = conUserID.(string)
+	if v, ok := conUserID.(string); ok {
+		userID = v
 	}
 
 	now := time.Now()
-	rows := make([]models.OpportunityTicket, 0, len(req))
+
+	requestedPairs := make([]CreateOpportunityTicketsRequest, 0, len(req))
+	seenPairs := make(map[string]struct{}, len(req))
+
 	for i, item := range req {
 		if item.OpportunityID == uuid.Nil {
 			return nil, fmt.Errorf("item[%d]: opportunity_id is required", i)
 		}
-		if item.TicketCode == "" {
+
+		ticketCode := strings.TrimSpace(item.TicketCode)
+		if ticketCode == "" {
 			return nil, fmt.Errorf("item[%d]: ticket_code is required", i)
 		}
 
-		rows = append(rows, models.OpportunityTicket{
+		pairKey := opportunityTicketPairKey(item.OpportunityID, ticketCode)
+
+		if _, ok := seenPairs[pairKey]; ok {
+			continue
+		}
+		seenPairs[pairKey] = struct{}{}
+
+		requestedPairs = append(requestedPairs, CreateOpportunityTicketsRequest{
+			OpportunityID: item.OpportunityID,
+			TicketCode:    ticketCode,
+		})
+	}
+
+	existingRows := make([]models.OpportunityTicket, 0)
+
+	query := gormx
+	for _, item := range requestedPairs {
+		query = query.Or(
+			"(opportunity_id = ? AND ticket_code = ?)",
+			item.OpportunityID,
+			item.TicketCode,
+		)
+	}
+
+	if err := query.Find(&existingRows).Error; err != nil {
+		return nil, fmt.Errorf("failed to check existing opportunity tickets: %v", err)
+	}
+
+	existingByPair := make(map[string]models.OpportunityTicket, len(existingRows))
+	for _, row := range existingRows {
+		existingByPair[opportunityTicketPairKey(row.OpportunityID, row.TicketCode)] = row
+	}
+
+	rows := make([]models.OpportunityTicket, 0, len(requestedPairs))
+	createdByPair := make(map[string]models.OpportunityTicket, len(requestedPairs))
+
+	for _, item := range requestedPairs {
+		pairKey := opportunityTicketPairKey(item.OpportunityID, item.TicketCode)
+
+		if _, ok := existingByPair[pairKey]; ok {
+			continue
+		}
+
+		row := models.OpportunityTicket{
 			ID:            uuid.New(),
 			OpportunityID: item.OpportunityID,
 			TicketCode:    item.TicketCode,
@@ -77,18 +133,31 @@ func CreateOpportunityTickets(gormx *gorm.DB, ctx *gin.Context, req []CreateOppo
 			CreateBy:      userID,
 			UpdateDate:    now,
 			UpdateBy:      userID,
-		})
+		}
+
+		rows = append(rows, row)
+		createdByPair[pairKey] = row
 	}
 
-	if err := gormx.Create(&rows).Error; err != nil {
-		return nil, fmt.Errorf("failed to create opportunity tickets: %v", err)
+	if len(rows) > 0 {
+		if err := gormx.Create(&rows).Error; err != nil {
+			return nil, fmt.Errorf("failed to create opportunity tickets: %v", err)
+		}
 	}
 
-	opportunityTickets := make([]OpportunityTicket, 0, len(rows))
-	for _, row := range rows {
-		opportunityTickets = append(opportunityTickets, OpportunityTicket{
-			ID: row.ID,
-		})
+	opportunityTickets := make([]OpportunityTicket, 0, len(requestedPairs))
+
+	for _, item := range requestedPairs {
+		pairKey := opportunityTicketPairKey(item.OpportunityID, item.TicketCode)
+
+		if row, ok := existingByPair[pairKey]; ok {
+			opportunityTickets = append(opportunityTickets, OpportunityTicket{ID: row.ID})
+			continue
+		}
+
+		if row, ok := createdByPair[pairKey]; ok {
+			opportunityTickets = append(opportunityTickets, OpportunityTicket{ID: row.ID})
+		}
 	}
 
 	res := CreateOpportunityTicketsResponse{

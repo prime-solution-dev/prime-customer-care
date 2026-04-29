@@ -9,7 +9,7 @@ import (
 type Ticket struct {
 	ID            uuid.UUID  `json:"id"`
 	TicketCode    string     `json:"ticket_code"`
-	TicketChannel string     `json:"ticket_channel"` // CALL, CHAT, EMAIL
+	TicketChannel string     `json:"ticket_channel"` // INCOMING_CALL, OUTGOING_CALL, CHAT, EMAIL
 	CustomerName  string     `json:"customer_name"`
 	Tel           string     `json:"tel"`
 	Email         string     `json:"email"`

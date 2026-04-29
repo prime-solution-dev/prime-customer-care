@@ -43,7 +43,7 @@ type CreateOpportunityResponse struct {
 
 type Opportunity struct {
 	ID              uuid.UUID `json:"id"`
-	OpportunityCode string    `json:"opportunity_code"`
+	OpportunityCode string    `json:"opportunity_code,omitempty"`
 }
 
 func CreateOpportunitiesRest(ctx *gin.Context, jsonPayload string) (interface{}, error) {
