@@ -1,14 +1,30 @@
 package routes
 
 import (
+	brandService "prime-customer-care/internal/services/brand-service"
 	opportunityService "prime-customer-care/internal/services/opportunity-service"
 	ticketService "prime-customer-care/internal/services/ticket-service"
+	ticketTypeService "prime-customer-care/internal/services/ticket-type-service"
 	"prime-customer-care/internal/utils"
 
 	"github.com/gin-gonic/gin"
 )
 
 func RegisterRoutes(ctx *gin.Engine) {
+
+	// Brand
+	brandRoutes := ctx.Group("/brand")
+
+	brandRoutes.POST("/get-brands", func(c *gin.Context) {
+		utils.ProcessRequest(c, brandService.GetBrandsRest)
+	})
+
+	// Ticket Type
+	ticketTypeRoutes := ctx.Group("/ticket-type")
+
+	ticketTypeRoutes.POST("/get-ticket-types", func(c *gin.Context) {
+		utils.ProcessRequest(c, ticketTypeService.GetTicketTypesRest)
+	})
 
 	//Ticket
 	ticketRoutes := ctx.Group("/ticket")
