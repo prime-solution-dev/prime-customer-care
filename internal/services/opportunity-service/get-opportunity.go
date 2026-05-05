@@ -179,7 +179,7 @@ func GetOpportunities(gormx *gorm.DB, request GetOpportunitiesRequest) (*GetOppo
 			Model(&models.OpportunityTicket{}).
 			Select("opportunity_id", "ticket_code").
 			Where("opportunity_id IN ?", opportunityIDs).
-			Order("ticket_code ASC").
+			Order("create_date ASC").
 			Find(&opportunityTickets).
 			Error; err != nil {
 			return nil, fmt.Errorf("failed to get opportunity tickets: %v", err)
