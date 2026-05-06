@@ -26,6 +26,8 @@ type GetOpportunitiesRequest struct {
 	OrderCode       []string   `json:"order_code"`
 	Status          []string   `json:"status"`
 	IsFollowerUp    *bool      `json:"is_follower_up"`
+	CreateByChannel []string   `json:"create_by_channel"`
+	CreateBy        []string   `json:"create_by"`
 	CreateDateFrom  *time.Time `json:"create_date_from"`
 	CreateDateTo    *time.Time `json:"create_date_to"`
 	Page            int        `json:"page"`
@@ -117,6 +119,14 @@ func GetOpportunities(gormx *gorm.DB, request GetOpportunitiesRequest) (*GetOppo
 
 	if request.IsFollowerUp != nil {
 		query = query.Where("is_follower_up = ?", *request.IsFollowerUp)
+	}
+
+	if len(request.CreateByChannel) > 0 {
+		query = query.Where("create_by_channel IN ?", request.CreateByChannel)
+	}
+
+	if len(request.CreateBy) > 0 {
+		query = query.Where("create_by IN ?", request.CreateBy)
 	}
 
 	if request.CreateDateFrom != nil {
