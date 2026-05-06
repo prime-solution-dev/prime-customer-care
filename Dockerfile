@@ -18,8 +18,6 @@ FROM alpine:3.20
 
 WORKDIR /app
 
-RUN mkdir -p /app/care/attachment
-
 RUN apk add --no-cache ca-certificates nano
 COPY --from=builder /app/customer-care .
 COPY --from=builder /app/.env .
