@@ -14,11 +14,11 @@ import (
 )
 
 type GetTicketTypesRequest struct {
-	ID        []string `json:"id"`
-	TypeCode  []string `json:"type_code"`
-	TypeName  []string `json:"type_name"`
-	Page      int      `json:"page"`
-	PageSize  int      `json:"page_size"`
+	ID       []string `json:"id"`
+	TypeCode []string `json:"type_code"`
+	TypeName []string `json:"type_name"`
+	Page     int      `json:"page"`
+	PageSize int      `json:"page_size"`
 }
 
 type GetTicketTypesResponse struct {
@@ -79,7 +79,7 @@ func GetTicketTypes(gormx *gorm.DB, request GetTicketTypesRequest) (*GetTicketTy
 		return nil, fmt.Errorf("failed to count ticket types: %v", err)
 	}
 
-	fetchQuery := query.Order("create_dtm DESC").Order("id DESC")
+	fetchQuery := query.Order("create_dtm ASC").Order("id ASC")
 	totalPages := 0
 
 	if usePagination {
