@@ -63,5 +63,8 @@ func RegisterRoutes(ctx *gin.Engine) {
 	opportunityRoutes.POST("/update-opportunity-remarks", func(c *gin.Context) {
 		utils.ProcessRequest(c, opportunityService.UpdateOpportunityRemarksRest)
 	})
+	opportunityRoutes.GET("/remark-attachments/download", func(c *gin.Context) {
+		utils.ProcessRequestWithBinarySupport(c, opportunityService.DownloadOpportunityRemarkAttachmentRest)
+	})
 
 }
