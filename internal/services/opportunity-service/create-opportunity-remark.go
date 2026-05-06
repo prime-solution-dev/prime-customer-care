@@ -145,7 +145,7 @@ func createOpportunityRemarkWithFiles(tx *gorm.DB, ctx *gin.Context, input Creat
 
 	basePath := strings.TrimSpace(os.Getenv("path_attachment"))
 	if basePath == "" {
-		basePath = "./customer-care/attachment"
+		basePath = "./attachment"
 	}
 
 	row := models.OpportunityRemark{
