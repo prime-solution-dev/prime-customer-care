@@ -19,6 +19,7 @@ type GetTicketOverviewRequest struct {
 	TicketCode       []string   `json:"ticket_code"`
 	TicketChannel    []string   `json:"ticket_channel"`
 	BrandCode        []string   `json:"brand_code"`
+	TicketType       []string   `json:"ticket_type"`
 	Status           []string   `json:"status"`
 	CreateDateFrom   *time.Time `json:"create_date_from"`
 	CreateDateTo     *time.Time `json:"create_date_to"`
@@ -104,6 +105,10 @@ func GetTicketOverview(gormx *gorm.DB, request GetTicketOverviewRequest) (*GetTi
 
 	if len(request.BrandCode) > 0 {
 		query = query.Where("brand_code IN ?", request.BrandCode)
+	}
+
+	if len(request.TicketType) > 0 {
+		query = query.Where("ticket_type IN ?", request.TicketType)
 	}
 
 	if len(request.Status) > 0 {
