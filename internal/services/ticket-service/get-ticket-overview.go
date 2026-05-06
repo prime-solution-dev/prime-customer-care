@@ -20,6 +20,7 @@ type GetTicketOverviewRequest struct {
 	TicketChannel    []string   `json:"ticket_channel"`
 	BrandCode        []string   `json:"brand_code"`
 	TicketType       []string   `json:"ticket_type"`
+	IsFollowUp       *bool      `json:"is_follow_up"`
 	Status           []string   `json:"status"`
 	CreateDateFrom   *time.Time `json:"create_date_from"`
 	CreateDateTo     *time.Time `json:"create_date_to"`
@@ -109,6 +110,10 @@ func GetTicketOverview(gormx *gorm.DB, request GetTicketOverviewRequest) (*GetTi
 
 	if len(request.TicketType) > 0 {
 		query = query.Where("ticket_type IN ?", request.TicketType)
+	}
+
+	if request.IsFollowUp != nil {
+		query = query.Where("is_follower_up = ?", *request.IsFollowUp)
 	}
 
 	if len(request.Status) > 0 {
