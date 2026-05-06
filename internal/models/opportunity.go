@@ -20,6 +20,7 @@ type Opportunity struct {
 	ProductName     string    `json:"product_name"`
 	OrderCode       string    `json:"order_code"`
 	Status          string    `json:"status"`
+	CreateByChannel string    `json:"create_by_channel"`
 	CreateDate      time.Time `json:"create_date"`
 	CreateBy        string    `json:"create_by"`
 	UpdateDate      time.Time `json:"update_date"`

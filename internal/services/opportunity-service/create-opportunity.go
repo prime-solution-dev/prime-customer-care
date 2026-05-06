@@ -33,6 +33,7 @@ type CreateOpportunityRequest struct {
 	ProductName     string                    `json:"product_name"`
 	OrderCode       string                    `json:"order_code"`
 	Status          string                    `json:"status"`
+	CreateByChannel string                    `json:"create_by_channel"`
 }
 
 type CreateOpportunityResponse struct {
@@ -101,6 +102,7 @@ func CreateOpportunities(gormx *gorm.DB, ctx *gin.Context, req []CreateOpportuni
 			ProductName:     item.ProductName,
 			OrderCode:       item.OrderCode,
 			Status:          item.Status,
+			CreateByChannel: item.CreateByChannel,
 			CreateDate:      now,
 			CreateBy:        userID,
 			UpdateDate:      now,
