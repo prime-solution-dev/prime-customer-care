@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"prime-customer-care/config"
 	"prime-customer-care/internal/middleware"
 	"prime-customer-care/internal/routes"
 
@@ -16,6 +17,7 @@ func main() {
 		log.Fatal("Error loading .env file xxxxxx: %v", err)
 	}
 
+	config.Initialize()
 	ginEngine := gin.Default()
 
 	middleware.RegisterMiddlewares(ginEngine)

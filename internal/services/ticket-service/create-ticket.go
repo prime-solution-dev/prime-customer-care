@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	systemConfigService "prime-customer-care/external/services/system-config-document"
 	"prime-customer-care/internal/db"
 	"prime-customer-care/internal/models"
 	"strings"
@@ -69,13 +70,18 @@ func CreateTickets(gormx *gorm.DB, ctx *gin.Context, req []CreateTicketRequest) 
 		userID = conUserID.(string)
 	}
 
+	runningTicketCodes, err := systemConfigService.GenerateRunningCodes("RUNNING_TK", len(req), true)
+	if err != nil {
+		return nil, err
+	}
+
 	rows := make([]models.Ticket, 0, len(req))
-	for _, item := range req {
+	for index, item := range req {
 		now := time.Now()
 		ticketID := uuid.New()
 		ticketCode := strings.TrimSpace(item.TicketCode)
 		if ticketCode == "" {
-			ticketCode = uuid.New().String()
+			ticketCode = runningTicketCodes[index] // or uuid.New().String()
 		}
 
 		var startCall *time.Time

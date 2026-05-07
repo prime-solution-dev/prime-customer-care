@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	systemConfigService "prime-customer-care/external/services/system-config-document"
 	"prime-customer-care/internal/db"
 	"prime-customer-care/internal/models"
 	"strings"
@@ -77,6 +78,11 @@ func CreateOpportunities(gormx *gorm.DB, ctx *gin.Context, req []CreateOpportuni
 		userID = conUserID.(string)
 	}
 
+	runningTicketCodes, err := systemConfigService.GenerateRunningCodes("RUNNING_TKG", len(req), true)
+	if err != nil {
+		return nil, err
+	}
+
 	opportunityRows := make([]models.Opportunity, 0, len(req))
 	ticketReqs := make([]CreateOpportunityTicketsRequest, 0)
 
@@ -85,7 +91,7 @@ func CreateOpportunities(gormx *gorm.DB, ctx *gin.Context, req []CreateOpportuni
 		opportunityID := uuid.New()
 		opportunityCode := strings.TrimSpace(item.OpportunityCode)
 		if opportunityCode == "" {
-			opportunityCode = uuid.New().String()
+			opportunityCode = runningTicketCodes[i] // or uuid.New().String()
 		}
 
 		opportunityRows = append(opportunityRows, models.Opportunity{
