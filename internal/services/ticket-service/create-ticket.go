@@ -66,8 +66,8 @@ func CreateTickets(gormx *gorm.DB, ctx *gin.Context, req []CreateTicketRequest) 
 
 	conUserID, _ := ctx.Get("user")
 	userID := ""
-	if conUserID != nil {
-		userID = conUserID.(string)
+	if id, ok := conUserID.(string); ok {
+		userID = id
 	}
 
 	runningTicketCodes, err := systemConfigService.GenerateRunningCodes("RUNNING_TK", len(req), true)
