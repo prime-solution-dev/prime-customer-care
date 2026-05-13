@@ -28,12 +28,11 @@ go.work.sum
 # env file
 .env
 cmd/.env
-jenkinsfile
-Dockerfile
+examples.env
 
 # Editor/IDE
 # .idea/
 # .vscode/
 
-# OS
-.DS_Store
+Jenkinsfile
+cmd/.env
