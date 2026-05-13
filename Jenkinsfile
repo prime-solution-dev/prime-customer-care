@@ -5,11 +5,11 @@ pipeline {
         IMAGE_NAME = 'customer-care'
         PORT = '9117:9117' 
         CONTAINER_NAME = 'customer-care-container'
-        TARGET_BRANCH = 'Pacifica-uat'
+        TARGET_BRANCH = 'Crossmax-uat'
         REMOTE_USER = 'ec2-user'
-        REMOTE_HOST = '13.250.141.97'
-        SSH_KEY_PATH = '/home/ec2-user/key/paci-uat.pem'
-        VAULT_PATH = 'JenkinsWMS/Jenkins.PacificaUATWMS' // path ของ secret
+        REMOTE_HOST = '52.76.29.55'                   
+        SSH_KEY_PATH = '/home/ec2-user/key/Crossmax-uat.pem' 
+        VAULT_PATH = 'JenkinsWMS/Jenkins.CrossmaxUATWMS' 
         ENV_FILE_KEY = 'PacificaUAT.env.customercare'
     }
     stages {
