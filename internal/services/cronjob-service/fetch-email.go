@@ -131,6 +131,7 @@ type email struct {
 	Subject string
 	From    string
 	Body    string
+	Date    time.Time
 }
 
 func connectIMAP(cfg *fetchConfig) (*imapClient.Client, error) {
@@ -199,6 +200,7 @@ func fetchEmails(c *imapClient.Client, uids []uint32) ([]email, error) {
 
 		if msg.Envelope != nil {
 			e.Subject = msg.Envelope.Subject
+			e.Date = msg.Envelope.Date
 			if len(msg.Envelope.From) > 0 && msg.Envelope.From[0] != nil {
 				e.From = msg.Envelope.From[0].Address()
 			}
@@ -302,13 +304,15 @@ func createTicketsFromEmails(gormx *gorm.DB, emails []email) error {
 // --- Main Job ---
 
 func FetchEmail() {
+	log.Println("[FetchEmail] started")
+
 	cfg, err := loadConfig()
 	if err != nil {
 		log.Printf("[FetchEmail] config error: %v", err)
 		return
 	}
 
-	gormx, err := db.ConnectGORM(os.Getenv("DATABASE_URL"))
+	gormx, err := db.ConnectGORM(os.Getenv("database_sqlx_url_customer_care"))
 	if err != nil {
 		log.Printf("[FetchEmail] db connect error: %v", err)
 		return
@@ -328,7 +332,7 @@ func FetchEmail() {
 		log.Printf("[FetchEmail] imap connect error: %v", err)
 		return
 	}
-	defer imapConn.Terminate()
+	defer imapConn.Logout()
 
 	uids, err := searchEmails(imapConn, state)
 	if err != nil {
@@ -349,12 +353,33 @@ func FetchEmail() {
 		return
 	}
 
-	if err := createTicketsFromEmails(gormx, emails); err != nil {
+	// Filter emails by since_date
+	var filtered []email
+	for _, e := range emails {
+		if e.Date.After(state.SinceDate) {
+			filtered = append(filtered, e)
+		}
+	}
+
+	if len(filtered) == 0 {
+		log.Println("[FetchEmail] no emails after since_date filter")
+		return
+	}
+
+	log.Printf("[FetchEmail] filtered %d emails after since_date", len(filtered))
+
+	if err := createTicketsFromEmails(gormx, filtered); err != nil {
 		log.Printf("[FetchEmail] create tickets error: %v", err)
 		return
 	}
 
-	if err := markAsRead(imapConn, uids); err != nil {
+	// collect UIDs from filtered only
+	var filteredUIDs []uint32
+	for _, e := range filtered {
+		filteredUIDs = append(filteredUIDs, e.UID)
+	}
+
+	if err := markAsRead(imapConn, filteredUIDs); err != nil {
 		log.Printf("[FetchEmail] mark as read error: %v", err)
 	}
 
