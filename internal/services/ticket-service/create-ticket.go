@@ -64,10 +64,12 @@ func CreateTickets(gormx *gorm.DB, ctx *gin.Context, req []CreateTicketRequest) 
 		return nil, fmt.Errorf("request is empty")
 	}
 
-	conUserID, _ := ctx.Get("user")
-	userID := ""
-	if id, ok := conUserID.(string); ok {
-		userID = id
+	userID := "SYSTEM"
+	if ctx != nil {
+		conUserID, _ := ctx.Get("user")
+		if id, ok := conUserID.(string); ok {
+			userID = id
+		}
 	}
 
 	runningTicketCodes, err := systemConfigService.GenerateRunningCodes("RUNNING_TK", len(req), true)

@@ -1,20 +1,17 @@
 package cronjobservice
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
+	"io"
 	"log"
-	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"prime-customer-care/internal/db"
 	"prime-customer-care/internal/services/cronjob"
-
-	"io"
-	"strings"
+	ticketService "prime-customer-care/internal/services/ticket-service"
 
 	"github.com/emersion/go-imap"
 	imapClient "github.com/emersion/go-imap/client"
@@ -38,7 +35,6 @@ type fetchConfig struct {
 	IMAPPort     string
 	IMAPUser     string
 	IMAPPassword string
-	APIEndpoint  string
 }
 
 func loadConfig() (*fetchConfig, error) {
@@ -47,7 +43,6 @@ func loadConfig() (*fetchConfig, error) {
 		IMAPPort:     os.Getenv("IMAP_PORT"),
 		IMAPUser:     os.Getenv("IMAP_USER"),
 		IMAPPassword: os.Getenv("IMAP_PASSWORD"),
-		APIEndpoint:  os.Getenv("FETCH_EMAIL_API_ENDPOINT"),
 	}
 
 	if cfg.IMAPHost == "" {
@@ -61,9 +56,6 @@ func loadConfig() (*fetchConfig, error) {
 	}
 	if cfg.IMAPPassword == "" {
 		return nil, fmt.Errorf("missing env: IMAP_PASSWORD")
-	}
-	if cfg.APIEndpoint == "" {
-		return nil, fmt.Errorf("missing env: FETCH_EMAIL_API_ENDPOINT")
 	}
 
 	return cfg, nil
@@ -287,50 +279,21 @@ func markAsRead(c *imapClient.Client, uids []uint32) error {
 	return c.UidStore(seqSet, imap.FormatFlagsOp(imap.AddFlags, true), flags, nil)
 }
 
-// --- API ---
+// --- Ticket ---
 
-type apiPayload struct {
-	TicketChannel string `json:"ticket_channel"`
-	Email         string `json:"email"`
-	Status        string `json:"status"`
-}
-
-// type apiEmail struct {
-// 	UID     uint32 `json:"uid"`
-// 	From    string `json:"from"`
-// 	Subject string `json:"subject"`
-// 	Body    string `json:"body"`
-// }
-
-func callAPI(cfg *fetchConfig, emails []email) error {
-	payload := []apiPayload{}
+func createTicketsFromEmails(gormx *gorm.DB, emails []email) error {
+	req := make([]ticketService.CreateTicketRequest, 0, len(emails))
 	for _, e := range emails {
-		payload = append(payload, apiPayload{
+		req = append(req, ticketService.CreateTicketRequest{
 			TicketChannel: "EMAIL",
 			Email:         e.From,
 			Status:        "PENDING",
-
-			// UID: e.UID,
-			// From:    e.From,
-			// Subject: e.Subject,
-			// Body:    e.Body,
 		})
 	}
 
-	body, err := json.Marshal(payload)
+	_, err := ticketService.CreateTickets(gormx, nil, req)
 	if err != nil {
-		return fmt.Errorf("failed to marshal payload: %w", err)
-	}
-
-	httpClient := &http.Client{Timeout: 30 * time.Second}
-	resp, err := httpClient.Post(cfg.APIEndpoint, "application/json", bytes.NewBuffer(body))
-	if err != nil {
-		return fmt.Errorf("request failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode >= 400 {
-		return fmt.Errorf("api returned status %d", resp.StatusCode)
+		return fmt.Errorf("failed to create tickets: %w", err)
 	}
 
 	return nil
@@ -386,8 +349,8 @@ func FetchEmail() {
 		return
 	}
 
-	if err := callAPI(cfg, emails); err != nil {
-		log.Printf("[FetchEmail] api error: %v", err)
+	if err := createTicketsFromEmails(gormx, emails); err != nil {
+		log.Printf("[FetchEmail] create tickets error: %v", err)
 		return
 	}
 
