@@ -304,7 +304,7 @@ func createTicketsFromEmails(gormx *gorm.DB, emails []email) error {
 // --- Main Job ---
 
 func FetchEmail() {
-	log.Println("[FetchEmail] started")
+	// log.Println("[FetchEmail] started")
 
 	cfg, err := loadConfig()
 	if err != nil {
@@ -325,7 +325,7 @@ func FetchEmail() {
 		return
 	}
 
-	log.Printf("[FetchEmail] last_uid: %d, since: %s", state.LastUID, state.SinceDate.Format(time.RFC3339))
+	// log.Printf("[FetchEmail] last_uid: %d, since: %s", state.LastUID, state.SinceDate.Format(time.RFC3339))
 
 	imapConn, err := connectIMAP(cfg)
 	if err != nil {
@@ -341,11 +341,11 @@ func FetchEmail() {
 	}
 
 	if len(uids) == 0 {
-		log.Println("[FetchEmail] no new emails")
+		// log.Println("[FetchEmail] no new emails")
 		return
 	}
 
-	log.Printf("[FetchEmail] found %d emails", len(uids))
+	// log.Printf("[FetchEmail] found %d emails", len(uids))
 
 	emails, err := fetchEmails(imapConn, uids)
 	if err != nil {
@@ -362,11 +362,11 @@ func FetchEmail() {
 	}
 
 	if len(filtered) == 0 {
-		log.Println("[FetchEmail] no emails after since_date filter")
+		// log.Println("[FetchEmail] no emails after since_date filter")
 		return
 	}
 
-	log.Printf("[FetchEmail] filtered %d emails after since_date", len(filtered))
+	// log.Printf("[FetchEmail] filtered %d emails after since_date", len(filtered))
 
 	if err := createTicketsFromEmails(gormx, filtered); err != nil {
 		log.Printf("[FetchEmail] create tickets error: %v", err)
@@ -395,5 +395,5 @@ func FetchEmail() {
 		return
 	}
 
-	log.Printf("[FetchEmail] success — saved last_uid: %d", maxUID)
+	// log.Printf("[FetchEmail] success — saved last_uid: %d", maxUID)
 }
