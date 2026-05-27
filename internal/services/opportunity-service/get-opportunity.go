@@ -138,7 +138,7 @@ func GetOpportunities(gormx *gorm.DB, request GetOpportunitiesRequest) (*GetOppo
 	}
 
 	var total int64
-	if err := query.Debug().Count(&total).Error; err != nil {
+	if err := query.Count(&total).Error; err != nil {
 		return nil, fmt.Errorf("failed to count opportunities: %v", err)
 	}
 

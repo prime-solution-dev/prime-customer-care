@@ -75,7 +75,7 @@ func GetTicketTypes(gormx *gorm.DB, request GetTicketTypesRequest) (*GetTicketTy
 	}
 
 	var total int64
-	if err := query.Debug().Count(&total).Error; err != nil {
+	if err := query.Count(&total).Error; err != nil {
 		return nil, fmt.Errorf("failed to count ticket types: %v", err)
 	}
 
