@@ -23,6 +23,7 @@ profile.cov
 # Go workspace file
 go.work
 go.work.sum
+.gocache
 
 # env file
 .env
@@ -32,6 +33,3 @@ examples.env
 # Editor/IDE
 # .idea/
 # .vscode/
-
-Jenkinsfile
-cmd/.env
