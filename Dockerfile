@@ -1,4 +1,4 @@
-FROM golang:1.23.2 AS builder
+FROM golang:1.25.0 AS builder
 
 WORKDIR /app
 
@@ -22,6 +22,6 @@ RUN apk add --no-cache ca-certificates nano
 COPY --from=builder /app/customer-care .
 COPY --from=builder /app/.env .
 
-EXPOSE 9112
+EXPOSE 9117
 
 CMD ["./customer-care"]
