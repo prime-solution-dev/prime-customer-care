@@ -25,7 +25,7 @@ import (
 const fetchLimit = 50
 
 func init() {
-	cronjob.RegisterJob("FetchEmail", FetchEmail, "*/5 * * * *")
+	cronjob.RegisterJob("FetchEmail", FetchEmail, "*/1 * * * *")
 }
 
 // --- Config ---
