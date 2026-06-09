@@ -10,7 +10,7 @@ pipeline {
         REMOTE_HOST = '13.250.141.97'
         SSH_KEY_PATH = '/home/ec2-user/key/paci-uat.pem'
         VAULT_PATH = 'JenkinsWMS/Jenkins.PacificaUATWMS' // path ของ secret
-        ENV_FILE_KEY = 'PacificaUAT.env.customercare'
+        ENV_FILE_KEY = 'PacificaUAT.env.customer-care'
     }
     stages {
         stage('Check SSH Key Access and User') {
