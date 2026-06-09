@@ -22,7 +22,7 @@ type GetTicketOverviewRequest struct {
 	TicketType        []string   `json:"ticket_type"`
 	IsFollowUp        *bool      `json:"is_follow_up"`
 	IsMissing         *bool      `json:"is_missing"`
-	IgnoreMissingDone *bool      `json:"ignoreMissingDone"`
+	IgnoreMissingDone *bool      `json:"ignore_missing_done"`
 	IsWrong           *bool      `json:"is_wrong"`
 	Status            []string   `json:"status"`
 	CreateDateFrom    *time.Time `json:"create_date_from"`
