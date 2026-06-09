@@ -22,6 +22,7 @@ type GetTicketOverviewRequest struct {
 	TicketType       []string   `json:"ticket_type"`
 	IsFollowUp       *bool      `json:"is_follow_up"`
 	IsMissing        *bool      `json:"is_missing"`
+	IsWrong          *bool      `json:"is_wrong"`
 	Status           []string   `json:"status"`
 	CreateDateFrom   *time.Time `json:"create_date_from"`
 	CreateDateTo     *time.Time `json:"create_date_to"`
@@ -46,6 +47,7 @@ type TicketOverview struct {
 	TicketType    *string    `json:"ticket_type"`
 	IsFollowerUp  *bool      `json:"is_follow_up"`
 	IsMissing     *bool      `json:"is_missing"`
+	IsWrong       *bool      `json:"is_wrong"`
 	StartCall     *time.Time `json:"start_call"`
 	EndCall       *time.Time `json:"end_call"`
 	CreateBy      string     `json:"create_by"`
@@ -119,6 +121,10 @@ func GetTicketOverview(gormx *gorm.DB, request GetTicketOverviewRequest) (*GetTi
 
 	if request.IsMissing != nil {
 		query = query.Where("is_missing = ?", *request.IsMissing)
+	}
+
+	if request.IsWrong != nil {
+		query = query.Where("is_wrong = ?", *request.IsWrong)
 	}
 
 	if len(request.Status) > 0 {
@@ -227,6 +233,7 @@ func getTicketOverviewBaseQuery(gormx *gorm.DB) *gorm.DB {
 			NULL AS ticket_type,
 			NULL AS is_follower_up,
 			is_missing,
+			is_wrong,
 			start_call,
 			end_call,
 			create_by,
@@ -248,6 +255,7 @@ func getTicketOverviewBaseQuery(gormx *gorm.DB) *gorm.DB {
 			ticket_type,
 			is_follower_up,
 			NULL AS is_missing,
+			NULL AS is_wrong,
 			NULL AS start_call,
 			NULL AS end_call,
 			create_by,
