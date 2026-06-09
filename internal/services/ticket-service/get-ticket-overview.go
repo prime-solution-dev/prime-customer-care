@@ -15,24 +15,25 @@ import (
 )
 
 type GetTicketOverviewRequest struct {
-	ID               []string   `json:"id"`
-	TicketCode       []string   `json:"ticket_code"`
-	TicketChannel    []string   `json:"ticket_channel"`
-	BrandCode        []string   `json:"brand_code"`
-	TicketType       []string   `json:"ticket_type"`
-	IsFollowUp       *bool      `json:"is_follow_up"`
-	IsMissing        *bool      `json:"is_missing"`
-	IsWrong          *bool      `json:"is_wrong"`
-	Status           []string   `json:"status"`
-	CreateDateFrom   *time.Time `json:"create_date_from"`
-	CreateDateTo     *time.Time `json:"create_date_to"`
-	Page             int        `json:"page"`
-	PageSize         int        `json:"page_size"`
-	TicketCodeLike   string     `json:"ticket_code_like"`
-	TelLike          string     `json:"tel_like"`
-	CustomerNameLike string     `json:"customer_name_like"`
-	EmailLike        string     `json:"email_like"`
-	CreateByLike     string     `json:"create_by_like"`
+	ID                []string   `json:"id"`
+	TicketCode        []string   `json:"ticket_code"`
+	TicketChannel     []string   `json:"ticket_channel"`
+	BrandCode         []string   `json:"brand_code"`
+	TicketType        []string   `json:"ticket_type"`
+	IsFollowUp        *bool      `json:"is_follow_up"`
+	IsMissing         *bool      `json:"is_missing"`
+	IgnoreMissingDone *bool      `json:"ignoreMissingDone"`
+	IsWrong           *bool      `json:"is_wrong"`
+	Status            []string   `json:"status"`
+	CreateDateFrom    *time.Time `json:"create_date_from"`
+	CreateDateTo      *time.Time `json:"create_date_to"`
+	Page              int        `json:"page"`
+	PageSize          int        `json:"page_size"`
+	TicketCodeLike    string     `json:"ticket_code_like"`
+	TelLike           string     `json:"tel_like"`
+	CustomerNameLike  string     `json:"customer_name_like"`
+	EmailLike         string     `json:"email_like"`
+	CreateByLike      string     `json:"create_by_like"`
 }
 
 type TicketOverview struct {
@@ -121,6 +122,10 @@ func GetTicketOverview(gormx *gorm.DB, request GetTicketOverviewRequest) (*GetTi
 
 	if request.IsMissing != nil {
 		query = query.Where("is_missing = ?", *request.IsMissing)
+	}
+
+	if request.IgnoreMissingDone != nil && *request.IgnoreMissingDone {
+		query = query.Where("NOT (COALESCE(is_missing, ?) = ? AND status = ?)", false, true, "COMPLETED")
 	}
 
 	if request.IsWrong != nil {
