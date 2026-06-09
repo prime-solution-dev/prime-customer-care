@@ -10,7 +10,7 @@ pipeline {
         REMOTE_HOST = '18.139.150.154' 
         SSH_KEY_PATH = '/home/ec2-user/key/paci-prd.pem'
         VAULT_PATH = 'JenkinsWMS/Jenkins.PacificaPRODWMS' // path ของ secret
-        ENV_FILE_KEY = 'PacificaPROD.env.customercare'
+        ENV_FILE_KEY = 'PacificaPROD.env.customer-care'
     }
     stages {
         stage('Check SSH Key Access and User') {
