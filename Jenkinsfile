@@ -5,12 +5,12 @@ pipeline {
         IMAGE_NAME = 'customer-care'
         PORT = '9117:9117' 
         CONTAINER_NAME = 'customer-care-container'
-        TARGET_BRANCH = 'shi-sit'
+        TARGET_BRANCH = 'shi-main'
         REMOTE_USER = 'ubuntu'
-        REMOTE_HOST = '13.250.66.64'
-        SSH_KEY_PATH = '/home/ec2-user/key/shiseido-sit.pem'
-        VAULT_PATH = 'JenkinsWMS/jenkins.shiseidosit' 
-        ENV_FILE_KEY = 'shiseidosit.env.customer-care'
+        REMOTE_HOST = '56.10.15.199'
+        SSH_KEY_PATH = '/home/ec2-user/key/shiseido-main.pem'
+        VAULT_PATH = 'JenkinsWMS/jenkins.shiseidomain'
+        ENV_FILE_KEY = 'shiseidomain.env.customer-care'
         
     }
 
