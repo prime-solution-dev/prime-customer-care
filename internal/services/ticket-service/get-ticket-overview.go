@@ -244,7 +244,9 @@ func getTicketOverviewBaseQuery(gormx *gorm.DB) *gorm.DB {
 			create_by,
 			status
 		FROM ticket
-		WHERE status = 'PENDING'
+		WHERE
+			status = 'PENDING'
+			OR (status = 'COMPLETED' AND is_wrong)
 
 		UNION ALL
 
