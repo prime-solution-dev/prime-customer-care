@@ -24,10 +24,8 @@ func init() {
 	cronjob.RegisterJob("FetchEmail", FetchEmail, "*/1 * * * *")
 }
 
-// --- Config ---
-
 type fetchConfig struct {
-	IMAPUser     string // ใช้เป็น Target Mailbox สำหรับส่งให้ Graph API
+	IMAPUser     string
 	TenantID     string
 	ClientID     string
 	ClientSecret string
@@ -58,6 +56,14 @@ type GraphBodySector struct {
 	Content     string `json:"content"`
 }
 
+type email struct {
+	UID     string
+	Subject string
+	From    string
+	Body    string
+	Date    time.Time
+}
+
 func loadConfig() (*fetchConfig, error) {
 	cfg := &fetchConfig{
 		IMAPUser:     os.Getenv("IMAP_USER"),
@@ -74,20 +80,7 @@ func loadConfig() (*fetchConfig, error) {
 		return nil, fmt.Errorf("missing Azure OAuth configuration in env")
 	}
 
-	log.Printf("TenantID=[%s]", cfg.TenantID)
-	log.Printf("ClientID=[%s]", cfg.ClientID)
-	log.Printf("TenantID length=%d", len(cfg.TenantID))
-	log.Printf("ClientID length=%d", len(cfg.ClientID))
-
 	return cfg, nil
-}
-
-type email struct {
-	UID     string
-	Subject string
-	From    string
-	Body    string
-	Date    time.Time
 }
 
 func getAccessToken(cfg *fetchConfig) (string, error) {
@@ -134,7 +127,6 @@ func createTicketsFromEmails(gormx *gorm.DB, emails []email) error {
 // --- Main Job ---
 
 func FetchEmail() {
-	log.Printf("$$$ [FetchEmail via Microsoft Graph API] $$$")
 
 	// 1. โหลดคอนฟิกจาก Environment (.env)
 	cfg, err := loadConfig()
@@ -166,7 +158,7 @@ func FetchEmail() {
 	}
 
 	if len(emails) == 0 {
-		log.Printf("[FetchEmail] no new unread emails found.")
+		// log.Printf("[FetchEmail] no new unread emails found.")
 		return
 	}
 
@@ -183,11 +175,11 @@ func FetchEmail() {
 		if err := markAsReadInGraph(token, cfg.IMAPUser, e.UID); err != nil {
 			log.Printf("[FetchEmail] failed to mark message %s as read: %v", e.UID, err)
 		} else {
-			log.Printf("[FetchEmail] successfully marked message %s as read.", e.UID)
+			// log.Printf("[FetchEmail] successfully marked message %s as read.", e.UID)
 		}
 	}
 
-	log.Printf("$$$ [FetchEmail] completed successfully $$$")
+	// log.Printf("$$$ [FetchEmail] completed successfully $$$")
 }
 
 func fetchEmailsFromGraph(accessToken string, targetUser string) ([]email, error) {
