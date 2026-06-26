@@ -1,6 +1,8 @@
 package cronjobservice
 
 import (
+	"context"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"log"
@@ -14,8 +16,10 @@ import (
 	ticketService "prime-customer-care/internal/services/ticket-service"
 
 	"github.com/emersion/go-imap"
-	imapClient "github.com/emersion/go-imap/client"
+	"github.com/emersion/go-imap/client"
 	"github.com/emersion/go-message/mail"
+
+	"golang.org/x/oauth2/clientcredentials"
 	"golang.org/x/text/encoding/charmap"
 	"golang.org/x/text/transform"
 
@@ -35,6 +39,10 @@ type fetchConfig struct {
 	IMAPPort     string
 	IMAPUser     string
 	IMAPPassword string
+
+	TenantID     string
+	ClientID     string
+	ClientSecret string
 }
 
 func loadConfig() (*fetchConfig, error) {
@@ -43,20 +51,41 @@ func loadConfig() (*fetchConfig, error) {
 		IMAPPort:     os.Getenv("IMAP_PORT"),
 		IMAPUser:     os.Getenv("IMAP_USER"),
 		IMAPPassword: os.Getenv("IMAP_PASSWORD"),
+
+		TenantID:     os.Getenv("AZURE_TENANT_ID"),
+		ClientID:     os.Getenv("AZURE_CLIENT_ID"),
+		ClientSecret: os.Getenv("AZURE_CLIENT_SECRET"),
 	}
 
 	if cfg.IMAPHost == "" {
 		return nil, fmt.Errorf("missing env: IMAP_HOST")
 	}
+
 	if cfg.IMAPPort == "" {
 		return nil, fmt.Errorf("missing env: IMAP_PORT")
 	}
+
 	if cfg.IMAPUser == "" {
 		return nil, fmt.Errorf("missing env: IMAP_USER")
 	}
-	if cfg.IMAPPassword == "" {
-		return nil, fmt.Errorf("missing env: IMAP_PASSWORD")
+
+	hasOAuth :=
+		cfg.TenantID != "" &&
+			cfg.ClientID != "" &&
+			cfg.ClientSecret != ""
+
+	hasPassword := cfg.IMAPPassword != ""
+
+	if !hasOAuth && !hasPassword {
+		return nil, fmt.Errorf(
+			"missing auth config: provide either OAuth or IMAP password",
+		)
 	}
+
+	log.Printf("TenantID=[%s]", cfg.TenantID)
+	log.Printf("ClientID=[%s]", cfg.ClientID)
+	log.Printf("TenantID length=%d", len(cfg.TenantID))
+	log.Printf("ClientID length=%d", len(cfg.ClientID))
 
 	return cfg, nil
 }
@@ -134,9 +163,94 @@ type email struct {
 	Date    time.Time
 }
 
-func connectIMAP(cfg *fetchConfig) (*imapClient.Client, error) {
+func getAccessToken(cfg *fetchConfig) (string, error) {
+	oauthCfg := clientcredentials.Config{
+		ClientID:     cfg.ClientID,
+		ClientSecret: cfg.ClientSecret,
+		TokenURL: fmt.Sprintf(
+			"https://login.microsoftonline.com/%s/oauth2/v2.0/token",
+			cfg.TenantID,
+		),
+		Scopes: []string{
+			"https://outlook.office365.com/.default",
+		},
+	}
+
+	token, err := oauthCfg.Token(context.Background())
+	if err != nil {
+		return "", fmt.Errorf("get token failed: %w", err)
+	}
+
+	return token.AccessToken, nil
+
+}
+
+func connectIMAP(cfg *fetchConfig) (*client.Client, error) {
+	token, err := getAccessToken(cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	log.Printf(
+		"[FetchEmail] access token acquired len=%d",
+		len(token),
+	)
+
+	log.Printf("IMAP_USER=[%s]", cfg.IMAPUser)
+
+	parts := strings.Split(token, ".")
+
+	if len(parts) >= 2 {
+		payload, _ := base64.RawURLEncoding.DecodeString(parts[1])
+		log.Printf("JWT Payload=%s", string(payload))
+	}
+
 	addr := fmt.Sprintf("%s:%s", cfg.IMAPHost, cfg.IMAPPort)
-	c, err := imapClient.DialTLS(addr, nil)
+
+	log.Printf("STEP 1: DialTLS [%s]", addr)
+
+	c, err := client.DialTLS(addr, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect: %w", err)
+	}
+
+	c.SetDebug(os.Stdout)
+
+	log.Printf("STEP 2: Capability")
+
+	caps, err := c.Capability()
+	log.Printf("CAPABILITY=%v", caps)
+	log.Printf("CAPABILITY_ERR=%v", err)
+
+	log.Printf("STEP 3: Authenticate")
+
+	auth := NewXOAuth2Client(
+		cfg.IMAPUser,
+		token,
+	)
+
+	if err := c.Authenticate(auth); err != nil {
+		log.Printf("STEP 3 FAILED")
+		_ = c.Logout()
+		return nil, fmt.Errorf("oauth authenticate failed: %w", err)
+	}
+
+	log.Printf("STEP 4: Select INBOX")
+
+	if _, err := c.Select("INBOX", false); err != nil {
+		log.Printf("STEP 4 FAILED")
+		_ = c.Logout()
+		return nil, fmt.Errorf("failed to select INBOX: %w", err)
+	}
+
+	log.Printf("STEP 5: SUCCESS")
+
+	return c, nil
+}
+
+func connectIMAPOld(cfg *fetchConfig) (*client.Client, error) {
+	addr := fmt.Sprintf("%s:%s", cfg.IMAPHost, cfg.IMAPPort)
+	c, err := client.DialTLS(addr, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect: %w", err)
 	}
@@ -152,7 +266,7 @@ func connectIMAP(cfg *fetchConfig) (*imapClient.Client, error) {
 	return c, nil
 }
 
-func searchEmails(c *imapClient.Client, state *fetchState) ([]uint32, error) {
+func searchEmails(c *client.Client, state *fetchState) ([]uint32, error) {
 	criteria := imap.NewSearchCriteria()
 	criteria.Since = state.SinceDate
 
@@ -173,7 +287,7 @@ func searchEmails(c *imapClient.Client, state *fetchState) ([]uint32, error) {
 	return uids, nil
 }
 
-func fetchEmails(c *imapClient.Client, uids []uint32) ([]email, error) {
+func fetchEmails(c *client.Client, uids []uint32) ([]email, error) {
 	seqSet := new(imap.SeqSet)
 	seqSet.AddNum(uids...)
 
@@ -273,7 +387,7 @@ func parseBody(msg *imap.Message) (string, error) {
 	return sb.String(), nil
 }
 
-func markAsRead(c *imapClient.Client, uids []uint32) error {
+func markAsRead(c *client.Client, uids []uint32) error {
 	seqSet := new(imap.SeqSet)
 	seqSet.AddNum(uids...)
 
@@ -304,6 +418,9 @@ func createTicketsFromEmails(gormx *gorm.DB, emails []email) error {
 // --- Main Job ---
 
 func FetchEmail() {
+
+	log.Printf("$$$ [FetchEmail] $$$")
+
 	cfg, err := loadConfig()
 	if err != nil {
 		log.Printf("[FetchEmail] config error: %v", err)
@@ -323,7 +440,14 @@ func FetchEmail() {
 		return
 	}
 
-	imapConn, err := connectIMAP(cfg)
+	var imapConn *client.Client
+
+	if os.Getenv("USE_OAUTH_IMAP") == "true" {
+		imapConn, err = connectIMAP(cfg)
+	} else {
+		imapConn, err = connectIMAPOld(cfg)
+	}
+
 	if err != nil {
 		log.Printf("[FetchEmail] imap connect error: %v", err)
 		return
@@ -339,6 +463,8 @@ func FetchEmail() {
 	if len(uids) == 0 {
 		return
 	}
+
+	log.Printf("##### [FetchEmail] !!!!")
 
 	emails, err := fetchEmails(imapConn, uids)
 	if err != nil {
