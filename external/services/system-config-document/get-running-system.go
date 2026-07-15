@@ -45,12 +45,12 @@ func GetRunningSystemConfig(jsonPayload GetRunningSystemConfigRequest) (GetRunni
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		fmt.Println("Response Status:", err)
+		return GetRunningSystemConfigResponse{}, fmt.Errorf("failed to read response body: %v", err)
 	}
 	var config GetRunningSystemConfigResponse
 	err = json.Unmarshal(body, &config)
 	if err != nil {
-		fmt.Println("Response Status:", err)
+		return GetRunningSystemConfigResponse{}, fmt.Errorf("failed to unmarshal response body: %v", err)
 	}
 	return config, nil
 }

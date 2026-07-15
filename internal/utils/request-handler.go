@@ -64,18 +64,11 @@ func ProcessRequestWithBinarySupport(c *gin.Context, serviceFunc func(*gin.Conte
 	}
 }
 func ProcessRequestMultiPart(c *gin.Context, serviceFunc func(*gin.Context) (interface{}, error)) {
-	form, err := c.MultipartForm()
+	_, err := c.MultipartForm()
 	if err != nil {
 		log.Println("Error parsing multipart form:", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "failed to get multipart form: " + err.Error()})
 		return
-	}
-
-	for fieldName, fileHeaders := range form.File {
-		for _, fileHeader := range fileHeaders {
-			log.Println("Field Name:", fieldName)
-			log.Println("Uploaded File:", fileHeader.Filename)
-		}
 	}
 
 	response, err := serviceFunc(c)
