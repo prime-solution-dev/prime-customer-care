@@ -10,7 +10,7 @@ pipeline {
         REMOTE_HOST = '47.128.166.228'                   
         SSH_KEY_PATH = '/home/ec2-user/key/kernal-uat.pem' 
         VAULT_PATH = 'JenkinsWMS/jenkins.kernaluatWMS' 
-        ENV_FILE_KEY = 'kernaluat..env.customer-care'
+        ENV_FILE_KEY = 'kernaluat.env.customer-care'
         DOCKERFILEPATH = 'Deployment.config/Kernel-uat/Dockerfile'
     }
     stages {
