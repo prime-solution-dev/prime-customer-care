@@ -159,7 +159,7 @@ stage('Deploy Container') {
             echo 'Deploying container on remote server...'
             sh """
                 ssh -i ${SSH_KEY_PATH} ${REMOTE_USER}@${REMOTE_HOST} '
-                    mkdir -p /wms/${REPO_NAME}/care &&
+                    mkdir -p /wms/${REPO_NAME} &&
 
                     docker run -d \
                         -p ${PORT} \
@@ -167,7 +167,7 @@ stage('Deploy Container') {
                         --name ${CONTAINER_NAME} \
                         -m 4g \
                         --memory-swap 4g \
-                        -v /wms/${REPO_NAME}/care:/app/care \
+                        -v /wms/${REPO_NAME}:/app/app/ \
                         ${IMAGE_NAME}:${env.BUILD_NUMBER} &&
                     docker tag ${IMAGE_NAME}:${env.BUILD_NUMBER} ${IMAGE_NAME}:latest
                 '
