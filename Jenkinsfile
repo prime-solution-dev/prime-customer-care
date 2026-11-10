@@ -5,15 +5,13 @@ pipeline {
         IMAGE_NAME = 'customer-care'
         PORT = '9117:9117' 
         CONTAINER_NAME = 'customer-care-container'
-        TARGET_BRANCH = 'shi-main'
-        REMOTE_USER = 'ubuntu'
-        REMOTE_HOST = '56.10.15.199'
-        SSH_KEY_PATH = '/home/ec2-user/key/shiseido-main.pem'
-        VAULT_PATH = 'JenkinsWMS/jenkins.shiseidomain'
-        ENV_FILE_KEY = 'shiseidomain.env.customer-care'
-        
+        TARGET_BRANCH = 'Crossmax-uat'
+        REMOTE_USER = 'ec2-user'
+        REMOTE_HOST = '52.76.29.55'                   
+        SSH_KEY_PATH = '/home/ec2-user/key/Crossmax-uat.pem' 
+        VAULT_PATH = 'JenkinsWMS/Jenkins.CrossmaxUATWMS' 
+        ENV_FILE_KEY = 'CrossmaxUAT.env.customer-care'
     }
-
     stages {
         stage('Check SSH Key Access and User') {
             steps {
@@ -32,7 +30,6 @@ pipeline {
                 }
             }
         }
-
         stage('SSH to Remote Server') {
             steps {
                 script {
@@ -41,11 +38,10 @@ pipeline {
                 }
             }
         }
-
         stage('Clone Repository') {
             steps {
                 script {
-                    echo "Cloning or updating repository branch: ${TARGET_BRANCH} on remote server..."
+                    echo "Cloning repository branch: ${TARGET_BRANCH} on remote server..."
                     withCredentials([string(credentialsId: 'GITTOKEN', variable: 'GIT_TOKEN')]) {
                         sh """ssh -o StrictHostKeyChecking=no -i ${SSH_KEY_PATH} ${REMOTE_USER}@${REMOTE_HOST} \\
                         'git clone -b ${TARGET_BRANCH} https://${GIT_TOKEN}@github.com/prime-solution-dev/${REPO_NAME} || \\
@@ -55,8 +51,14 @@ pipeline {
                 }
             }
         }
-
-        stage('Fetch .env from Vault (Remote)') {
+        stage('Check Workspace') {
+            steps {
+                script {
+                    sh "ssh -i ${SSH_KEY_PATH} ${REMOTE_USER}@${REMOTE_HOST} 'pwd && ls -la ${REPO_NAME}'"
+                }
+            }
+        }
+stage('Fetch .env from Vault (Remote)') {
     steps {
         script {
             echo "Fetching .env from Vault and write to remote server..."
@@ -84,15 +86,6 @@ EOF
         }
     }
 }
-
-        stage('Check Workspace') {
-            steps {
-                script {
-                    sh "ssh -i ${SSH_KEY_PATH} ${REMOTE_USER}@${REMOTE_HOST} 'pwd && ls -la ${REPO_NAME}'"
-                }
-            }
-        }
-
         stage('Backup Current Image') {
             steps {
                 script {
@@ -110,24 +103,30 @@ EOF
                     else \\
                         echo 'No source image found, skipping backup.'; \\
                     fi" """
-
                     echo 'Cleaning up old backups on remote server...'
                     sh """ssh -i ${SSH_KEY_PATH} ${REMOTE_USER}@${REMOTE_HOST} \\
                     "docker images --filter=reference='${IMAGE_NAME}-backup:*' --format '{{.Repository}}:{{.Tag}}' | sort | head -n -5 | xargs -r docker rmi -f" """
                 }
             }
         }
-
+        stage('Remove Old Docker Image') {
+            steps {
+                script {
+                    echo 'Removing old Docker image on remote server...'
+                    sh """ssh -i ${SSH_KEY_PATH} ${REMOTE_USER}@${REMOTE_HOST} docker rmi -f ${IMAGE_NAME}:latest || true"""
+                }
+            }
+        }
         stage('Build Docker Image') {
             steps {
                 script {
-                    echo 'Building Docker image on remote server with updated .env...'
+                    echo 'Building Docker image on remote server...'
                     sh """ssh -i ${SSH_KEY_PATH} ${REMOTE_USER}@${REMOTE_HOST} \\
                     'cd ${REPO_NAME} && docker build --no-cache -t ${IMAGE_NAME}:latest .'"""
                 }
             }
         }
-                stage('Stop and Remove Old Container') {
+        stage('Stop and Remove Old Container') {
             steps {
                 script {
                     echo 'Stopping and removing old container on remote server...'
@@ -141,11 +140,11 @@ EOF
                 script {
                     echo 'Deploying container on remote server...'
                     sh """ssh -i ${SSH_KEY_PATH} ${REMOTE_USER}@${REMOTE_HOST} \\
-                    "docker run -d -p ${PORT} --cpus=1.0 --name ${CONTAINER_NAME} -m 4g --memory-swap 4g ${IMAGE_NAME}:latest" """
+                    "docker run -d -p ${PORT} --cpus=1.0 --name ${CONTAINER_NAME} ${IMAGE_NAME}:latest" """
                 }
             }
         }
-               stage('Clean Up Repository') {
+stage('Clean Up Repository') {
     steps {
         script {
             echo 'Cleaning up cloned repository on remote...'
@@ -154,8 +153,7 @@ EOF
         }
     }
 }
-    } 
-
+    }
     post {
         success {
             echo 'Pipeline completed successfully!'
@@ -167,15 +165,12 @@ EOF
                 sh """ssh -i ${SSH_KEY_PATH} ${REMOTE_USER}@${REMOTE_HOST} \\
                 "docker ps -aq --filter name=${CONTAINER_NAME} | xargs -r docker stop && docker ps -aq --filter name=${CONTAINER_NAME} | xargs -r docker rm" """
 
-                def latestBackup = sh(
-                    script: "ssh -i ${SSH_KEY_PATH} ${REMOTE_USER}@${REMOTE_HOST} docker images --filter=reference='${IMAGE_NAME}-backup:*' --format '{{.Repository}}:{{.Tag}}' | sort | tail -n 1",
-                    returnStdout: true
-                ).trim()
+                def latestBackup = sh(script: "ssh -i ${SSH_KEY_PATH} ${REMOTE_USER}@${REMOTE_HOST} docker images --filter=reference='${IMAGE_NAME}-backup:*' --format '{{.Repository}}:{{.Tag}}' | sort | tail -n 1", returnStdout: true).trim()
 
                 if (latestBackup) {
                     echo "Found backup image: ${latestBackup}, deploying..."
                     sh """ssh -i ${SSH_KEY_PATH} ${REMOTE_USER}@${REMOTE_HOST} \\
-                    'docker run -d -p ${PORT} --cpus=1.0 --name ${CONTAINER_NAME} --env-file ${REPO_NAME}/cmd/.env ${latestBackup}'"""
+                    "docker run -d -p ${PORT} --cpus=1.0 --name ${CONTAINER_NAME} ${latestBackup}" """
                     echo "Rollback completed using backup image: ${latestBackup}"
                 } else {
                     echo "No backup image found. Rollback cannot be completed."
@@ -184,3 +179,7 @@ EOF
         }
     }
 }
+
+
+
+

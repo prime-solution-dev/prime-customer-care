@@ -34,6 +34,6 @@ RUN apk add --no-cache ca-certificates nano
 COPY --from=builder /app/customer-care .
 COPY --from=builder /app/.env .
 
-EXPOSE 9117
+EXPOSE 9112
 
 CMD ["./customer-care"]
